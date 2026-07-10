@@ -7,7 +7,25 @@ annotation -> visualization -> assembled JSON report.
 Two-group comparisons only (exactly two condition labels in metadata).
 """
 
+import os
+
+# Must be set before numpy/scipy are imported anywhere in the process.
+# Without this, BLAS libraries size their thread pools off the host's
+# detected CPU count (not the container's cgroup memory limit), and
+# pydeseq2's own multiprocessing defaults to one worker per core too --
+# on a host reporting many cores, that blows well past a 1GB container
+# limit even for a tiny gene panel. Force everything single-threaded.
+for _env_var in (
+    "OMP_NUM_THREADS",
+    "OPENBLAS_NUM_THREADS",
+    "MKL_NUM_THREADS",
+    "NUMEXPR_NUM_THREADS",
+    "VECLIB_MAXIMUM_THREADS",
+):
+    os.environ.setdefault(_env_var, "1")
+
 import base64
+import gc
 import io
 import json
 import logging
@@ -213,14 +231,18 @@ def run_pipeline(job_id: str, counts: dict, metadata: dict):
             design_factors="condition",
             refit_cooks=True,
             quiet=True,
+            n_cpus=1,
+            low_memory=True,
         )
         dds.deseq2()
-        stat_res = DeseqStats(dds, contrast=["condition", cond_b, cond_a], quiet=True)
+        stat_res = DeseqStats(dds, contrast=["condition", cond_b, cond_a], quiet=True, n_cpus=1)
         stat_res.summary()
         res_df = stat_res.results_df.copy()
         res_df["gene"] = res_df.index
         res_df["padj"] = res_df["padj"].fillna(1.0)
         res_df["pvalue"] = res_df["pvalue"].fillna(1.0)
+        del dds, stat_res
+        gc.collect()
 
         # ---- filtering_degs ----
         job["stage"] = "filtering_degs"
@@ -265,6 +287,7 @@ def run_pipeline(job_id: str, counts: dict, metadata: dict):
             except Exception as e:
                 logger.warning("Enrichr call failed for job %s, degrading gracefully: %s", job_id, e)
                 enrichment = {gs: [] for gs in ENRICHR_GENE_SETS}
+            gc.collect()
 
         # ---- biomarker_annotation ----
         job["stage"] = "biomarker_annotation"

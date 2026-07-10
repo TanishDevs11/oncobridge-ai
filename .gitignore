@@ -8,3 +8,5 @@ env/
 .ipynb_checkpoints/
 .DS_Store
 *.log
+.claude/
+prod_test_payload.json
