@@ -401,6 +401,17 @@ def _make_heatmap(counts_df: pd.DataFrame, degs_df: pd.DataFrame, metadata_df: p
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+@app.get("/")
+async def root():
+    return {
+        "service": "OncoBridge AI",
+        "description": "Cancer transcriptomics pipeline: DESeq2 differential expression, Enrichr enrichment, biomarker annotation, and visualization.",
+        "skill_md": "/skill.md",
+        "health": "/health",
+        "endpoints": ["POST /analyze", "GET /jobs/{job_id}", "GET /results/{job_id}"],
+    }
+
+
 @app.post("/analyze", status_code=202)
 async def analyze(request: Request, background_tasks: BackgroundTasks):
     payload = await read_json_strict(request)
