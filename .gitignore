@@ -10,3 +10,7 @@ env/
 *.log
 .claude/
 prod_test_payload.json
+prod_enrichr_test_payload.json
+prod_result*.json
+skill_example_payload.json
+skill_example_result.json
